@@ -17,13 +17,22 @@ jobs:
       id-token: write
       contents: read
 
+
     env:
+      #AWS CONFIG
       AWS_REGION: ap-south-1
       EKS_CLUSTER: backstract-dev
       NAMESPACE: apps-release
       ECR_REPO: backstract_apps
       STATIC_TAG: boring-stallman-a853a87033
       INFRA_DIR: infra/k8s
+      #GCP CONFIG
+      GCP_PROJECT_ID: platform-test-487912
+      GKE_CLUSTER: lcnc-cluster
+      GKE_REGION: asia-south1
+      # IMPORTANT: Replace 123456789012 with your 12-digit GCP Project Number
+      GCP_WIF_PROVIDER: "projects/208126041268/locations/global/workloadIdentityPools/github-actions-pool/providers/github-provider"
+      GCP_WIF_SA: "github-deployer@platform-test-487912.iam.gserviceaccount.com"
 
     steps:
       - name: Checkout actual code
@@ -73,6 +82,7 @@ jobs:
         run: |
           set -euo pipefail
           aws sts get-caller-identity
+          
       - name: Login to Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
@@ -89,6 +99,7 @@ jobs:
           key: ${{ runner.os }}-buildx-${{ github.sha }}
           restore-keys: |
             ${{ runner.os }}-buildx-
+
 
       - name: Build Docker image for log streamer
         uses: ./.github/actions/log-streamer
@@ -127,6 +138,8 @@ jobs:
           endpoint: https://api-release.beemerbenzbentley.site/sigma/api/v1/logs/github
           token: none
 
+
+
       - name: Update kubeconfig to point to EKS
         timeout-minutes: 8
         run: |
@@ -146,6 +159,7 @@ jobs:
             aws eks update-kubeconfig --name $EKS_CLUSTER --region $AWS_REGION
           endpoint: https://api-release.beemerbenzbentley.site/sigma/api/v1/logs/github
           token: none
+
 
       - name: Create Kubernetes secret dynamically
         run: |
@@ -232,6 +246,50 @@ jobs:
             fi
             echo "✅ Smoke check passed with 200 on ${DOCS_URL}"
 
+          endpoint: https://api-release.beemerbenzbentley.site/sigma/api/v1/logs/github
+          token: ${{ secrets.BACKSTRACT_AUTH_TOKEN }}
+      # --- DEPLOYMENT TO GCP GKE ---
+      - name: Authenticate to Google Cloud (OIDC)
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ env.GCP_WIF_PROVIDER }}
+          service_account: ${{ env.GCP_WIF_SA }}
+  
+      - name: Get GKE Credentials
+        uses: google-github-actions/get-gke-credentials@v2
+        with:
+          cluster_name: ${{ env.GKE_CLUSTER }}
+          location: ${{ env.GKE_REGION }}
+  
+      - name: Deploy to GKE
+        uses: ./.github/actions/log-streamer
+        env:
+          BST_TOKEN: ${{ secrets.BACKSTRACT_AUTH_TOKEN }}
+        with:
+          step_name: "Deploy to GCP GKE Cluster"
+          command: |
+            # 1. Setup Namespace
+            kubectl get namespace $NAMESPACE || kubectl create namespace $NAMESPACE
+  
+            # 2. Sync ECR Pull Secret (The Key Bridge)
+            kubectl create secret docker-registry aws-ecr-creds \
+              --docker-server=${{ steps.login-ecr.outputs.registry }} \
+              --docker-username=AWS \
+              --docker-password=$(aws ecr get-login-password --region ${{ env.AWS_REGION }}) \
+              --namespace $NAMESPACE --dry-run=client -o yaml | kubectl apply -f -
+  
+            # 3. Create App Secrets
+            echo "${{ secrets.K8S_ENV_FILE }}" > .env
+            kubectl create secret generic app-secrets-coll-e75eba4c58084d37a2e547113126b79f \
+              --namespace $NAMESPACE --from-env-file=.env --dry-run=client -o yaml | kubectl apply -f -
+  
+            # 4. Apply Manifests
+            awk -v token="${BST_TOKEN}" '{gsub(/PLACEHOLDER_BST_TOKEN_REPLACE_AT_RUNTIME/, token)}1' "$INFRA_DIR/deployment.yaml" > /tmp/deployment_gke.yaml
+            
+            kubectl apply -n $NAMESPACE -f /tmp/deployment_gke.yaml
+            kubectl apply -n $NAMESPACE -f "$INFRA_DIR/service.yaml"
+            
+            kubectl rollout status deployment "boring-stallman-a853a87033-depl" -n $NAMESPACE
           endpoint: https://api-release.beemerbenzbentley.site/sigma/api/v1/logs/github
           token: ${{ secrets.BACKSTRACT_AUTH_TOKEN }}
 
