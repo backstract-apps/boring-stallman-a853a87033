@@ -33,6 +33,9 @@ spec:
         app: boring-stallman-a853a87033
         release: prometheus # Added label for PodMonitor discovery
     spec:
+      # This allows GKE to pull from AWS ECR
+      imagePullSecrets:
+        - name: aws-ecr-creds
       serviceAccountName: alloy-service-account
       volumes:
       - name: alloy-config
