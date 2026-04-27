@@ -1,0 +1,24 @@
+kind: HTTPScaledObject
+apiVersion: http.keda.sh/v1alpha1
+metadata:
+  name: boring-stallman-a853a87033-scaler
+  namespace: apps-release
+spec:
+  hosts:
+    - cc1fbde45ead-in-south-01.mayson.dev
+  pathPrefixes:
+    - /us-east-2-backstractelb-621aff-coll-c766e74b4a974272b188e43d174331e7/ # e.g. /infallible-naveen-... boring-stallman-a853a87033/
+  scaleTargetRef:
+    name: boring-stallman-a853a87033-depl
+    kind: Deployment
+    apiVersion: apps/v1
+    service: boring-stallman-a853a87033-srv # e.g. coll-8a2a...-srv
+    port: 80
+  replicas:
+    min: 0
+    max: 10
+  scaledownPeriod: 1800 #inseconds
+  scalingMetric:
+    requestRate:
+      targetValue: 100
+      window: 1m
