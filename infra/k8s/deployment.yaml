@@ -1,4 +1,3 @@
----
 apiVersion: v1
 kind: Secret
 metadata:
@@ -20,20 +19,19 @@ metadata:
   namespace: apps-release
   labels:
     app: boring-stallman-a853a87033
-    release: prometheus # Added label for PodMonitor discovery
+    release: prometheus
 spec:
-  replicas: 0
+  replicas: 1
   selector:
     matchLabels:
       app: boring-stallman-a853a87033
-      release: prometheus # Added label for PodMonitor discovery
+      release: prometheus
   template:
     metadata:
       labels:
         app: boring-stallman-a853a87033
-        release: prometheus # Added label for PodMonitor discovery
+        release: prometheus
     spec:
-      # This allows GKE to pull from AWS ECR
       imagePullSecrets:
         - name: aws-ecr-creds
       serviceAccountName: alloy-service-account
@@ -44,7 +42,6 @@ spec:
           items:
           - key: alloy.river
             path: config.alloy
-
       - name: podinfo
         downwardAPI:
           items:
@@ -54,19 +51,6 @@ spec:
           - path: "annotations"
             fieldRef:
               fieldPath: metadata.annotations
-      tolerations:
-        - key: "workload"
-          operator: "Equal"
-          value: "user"
-          effect: "NoSchedule"
-      affinity:
-        nodeAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-            nodeSelectorTerms:
-              - matchExpressions:
-                  - key: nodepool
-                    operator: In
-                    values: ["spot-users"]
       containers:
       - name: boring-stallman-a853a87033
         image: 216084506783.dkr.ecr.ap-south-1.amazonaws.com/backstract_apps:boring-stallman-a853a87033
@@ -86,9 +70,7 @@ spec:
             name: app-secrets-coll-c766e74b4a974272b188e43d174331e7
         ports:
         - containerPort: 7070
-          name: http # Optional for HTTP traffic
-        - containerPort: 7070 #same as the deployed code
-          name: metrics # Added port for metrics scraping
+          name: http
         resources:
           requests:
             memory: "210Mi"
@@ -96,7 +78,6 @@ spec:
           limits:
             memory: "500Mi"
             cpu: "500m"
-
       - name: alloy-sidecar
         image: grafana/alloy:latest
         args:
@@ -126,3 +107,17 @@ spec:
           limits:
             memory: "384Mi"
             cpu: "300m"
+      # --- EKS ONLY BLOCK: Pipeline must strip this for GKE ---
+      tolerations:
+        - key: "workload"
+          operator: "Equal"
+          value: "user"
+          effect: "NoSchedule"
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: nodepool
+                    operator: In
+                    values: ["spot-users"]
