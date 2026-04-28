@@ -261,6 +261,15 @@ jobs:
           cluster_name: ${{ env.GKE_CLUSTER }}
           location: ${{ env.GKE_REGION }}
   
+      - name: Prepare GKE Manifests
+        run: |
+          # 1. Handle Secret (Token Injection)
+          awk -v token="${{ secrets.BACKSTRACT_AUTH_TOKEN }}" '{gsub(/PLACEHOLDER_BST_TOKEN_REPLACE_AT_RUNTIME/, token)}1' "infra/k8s/secrets.yaml" > /tmp/gke_secrets.yaml
+          
+          # 2. Handle Deployment (Strip EKS affinity/tolerations)
+          # This deletes from 'tolerations:' to the end of the file for the GKE version
+          sed '/tolerations:/,$d' "infra/k8s/deployment.yaml" > /tmp/deployment_gke.yaml
+  
       - name: Deploy to GKE
         uses: ./.github/actions/log-streamer
         env:
@@ -268,28 +277,19 @@ jobs:
         with:
           step_name: "Deploy to GCP GKE Cluster"
           command: |
-            # 1. Setup Namespace
             kubectl get namespace $NAMESPACE || kubectl create namespace $NAMESPACE
-  
-            # 2. Sync ECR Pull Secret (The Key Bridge)
+            
+            # Create Pull Secret for AWS ECR
             kubectl create secret docker-registry aws-ecr-creds \
               --docker-server=${{ steps.login-ecr.outputs.registry }} \
               --docker-username=AWS \
               --docker-password=$(aws ecr get-login-password --region ${{ env.AWS_REGION }}) \
               --namespace $NAMESPACE --dry-run=client -o yaml | kubectl apply -f -
   
-            # 3. Create App Secrets
-            echo "${{ secrets.K8S_ENV_FILE }}" > .env
-            kubectl create secret generic app-secrets-coll-e75eba4c58084d37a2e547113126b79f \
-              --namespace $NAMESPACE --from-env-file=.env --dry-run=client -o yaml | kubectl apply -f -
-  
-            # 4. Apply Manifests
-            awk -v token="${BST_TOKEN}" '{gsub(/PLACEHOLDER_BST_TOKEN_REPLACE_AT_RUNTIME/, token)}1' "$INFRA_DIR/deployment.yaml" > /tmp/deployment_gke.yaml
-            
+            # Apply manifests
+            kubectl apply -n $NAMESPACE -f /tmp/gke_secrets.yaml
             kubectl apply -n $NAMESPACE -f /tmp/deployment_gke.yaml
-            kubectl apply -n $NAMESPACE -f "$INFRA_DIR/service.yaml"
+            kubectl apply -n $NAMESPACE -f "infra/k8s/service.yaml"
             
             kubectl rollout status deployment "boring-stallman-a853a87033-depl" -n $NAMESPACE
-          endpoint: https://api-release.beemerbenzbentley.site/sigma/api/v1/logs/github
-          token: ${{ secrets.BACKSTRACT_AUTH_TOKEN }}
 
