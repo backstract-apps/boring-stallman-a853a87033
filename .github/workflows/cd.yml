@@ -27,12 +27,12 @@ jobs:
       STATIC_TAG: boring-stallman-a853a87033
       INFRA_DIR: infra/k8s
       #GCP CONFIG
-      GCP_PROJECT_ID: platform-test-487912
-      GKE_CLUSTER: lcnc-cluster-delhi
-      GKE_REGION: asia-south2
-      # IMPORTANT: Replace 123456789012 with your 12-digit GCP Project Number
-      GCP_WIF_PROVIDER: "projects/208126041268/locations/global/workloadIdentityPools/github-actions-pool/providers/github-provider"
-      GCP_WIF_SA: "github-deployer@platform-test-487912.iam.gserviceaccount.com"
+      # GCP_PROJECT_ID: platform-test-487912
+      # GKE_CLUSTER: lcnc-cluster-delhi
+      # GKE_REGION: asia-south2
+      # # IMPORTANT: Replace 123456789012 with your 12-digit GCP Project Number
+      # GCP_WIF_PROVIDER: "projects/208126041268/locations/global/workloadIdentityPools/github-actions-pool/providers/github-provider"
+      # GCP_WIF_SA: "github-deployer@platform-test-487912.iam.gserviceaccount.com"
 
     steps:
       - name: Checkout actual code
@@ -249,47 +249,47 @@ jobs:
           endpoint: https://api-release.beemerbenzbentley.site/sigma/api/v1/logs/github
           token: ${{ secrets.BACKSTRACT_AUTH_TOKEN }}
       # --- DEPLOYMENT TO GCP GKE ---
-      - name: Authenticate to Google Cloud (OIDC)
-        uses: google-github-actions/auth@v2
-        with:
-          workload_identity_provider: ${{ env.GCP_WIF_PROVIDER }}
-          service_account: ${{ env.GCP_WIF_SA }}
+      # - name: Authenticate to Google Cloud (OIDC)
+      #   uses: google-github-actions/auth@v2
+      #   with:
+      #     workload_identity_provider: ${{ env.GCP_WIF_PROVIDER }}
+      #     service_account: ${{ env.GCP_WIF_SA }}
   
-      - name: Get GKE Credentials
-        uses: google-github-actions/get-gke-credentials@v2
-        with:
-          cluster_name: ${{ env.GKE_CLUSTER }}
-          location: ${{ env.GKE_REGION }}
+      # - name: Get GKE Credentials
+      #   uses: google-github-actions/get-gke-credentials@v2
+      #   with:
+      #     cluster_name: ${{ env.GKE_CLUSTER }}
+      #     location: ${{ env.GKE_REGION }}
   
-      - name: Prepare GKE Manifests
-        run: |
-          # 1. Handle Secret (Token Injection)
-          awk -v token="${{ secrets.BACKSTRACT_AUTH_TOKEN }}" '{gsub(/PLACEHOLDER_BST_TOKEN_REPLACE_AT_RUNTIME/, token)}1' "infra/k8s/secrets.yaml" > /tmp/gke_secrets.yaml
+      # - name: Prepare GKE Manifests
+      #   run: |
+      #     # 1. Handle Secret (Token Injection)
+      #     awk -v token="${{ secrets.BACKSTRACT_AUTH_TOKEN }}" '{gsub(/PLACEHOLDER_BST_TOKEN_REPLACE_AT_RUNTIME/, token)}1' "infra/k8s/secrets.yaml" > /tmp/gke_secrets.yaml
           
-          # 2. Handle Deployment (Strip EKS affinity/tolerations)
-          # This deletes from 'tolerations:' to the end of the file for the GKE version
-          sed '/tolerations:/,$d' "infra/k8s/deployment.yaml" > /tmp/deployment_gke.yaml
+      #     # 2. Handle Deployment (Strip EKS affinity/tolerations)
+      #     # This deletes from 'tolerations:' to the end of the file for the GKE version
+      #     sed '/tolerations:/,$d' "infra/k8s/deployment.yaml" > /tmp/deployment_gke.yaml
   
-      - name: Deploy to GKE
-        uses: ./.github/actions/log-streamer
-        env:
-          BST_TOKEN: ${{ secrets.BACKSTRACT_AUTH_TOKEN }}
-        with:
-          step_name: "Deploy to GCP GKE Cluster"
-          command: |
-            kubectl get namespace $NAMESPACE || kubectl create namespace $NAMESPACE
+      # - name: Deploy to GKE
+      #   uses: ./.github/actions/log-streamer
+      #   env:
+      #     BST_TOKEN: ${{ secrets.BACKSTRACT_AUTH_TOKEN }}
+      #   with:
+      #     step_name: "Deploy to GCP GKE Cluster"
+      #     command: |
+      #       kubectl get namespace $NAMESPACE || kubectl create namespace $NAMESPACE
             
-            # Create Pull Secret for AWS ECR
-            kubectl create secret docker-registry aws-ecr-creds \
-              --docker-server=${{ steps.login-ecr.outputs.registry }} \
-              --docker-username=AWS \
-              --docker-password=$(aws ecr get-login-password --region ${{ env.AWS_REGION }}) \
-              --namespace $NAMESPACE --dry-run=client -o yaml | kubectl apply -f -
+      #       # Create Pull Secret for AWS ECR
+      #       kubectl create secret docker-registry aws-ecr-creds \
+      #         --docker-server=${{ steps.login-ecr.outputs.registry }} \
+      #         --docker-username=AWS \
+      #         --docker-password=$(aws ecr get-login-password --region ${{ env.AWS_REGION }}) \
+      #         --namespace $NAMESPACE --dry-run=client -o yaml | kubectl apply -f -
   
-            # Apply manifests
-            kubectl apply -n $NAMESPACE -f /tmp/gke_secrets.yaml
-            kubectl apply -n $NAMESPACE -f /tmp/deployment_gke.yaml
-            kubectl apply -n $NAMESPACE -f "infra/k8s/service.yaml"
+      #       # Apply manifests
+      #       kubectl apply -n $NAMESPACE -f /tmp/gke_secrets.yaml
+      #       kubectl apply -n $NAMESPACE -f /tmp/deployment_gke.yaml
+      #       kubectl apply -n $NAMESPACE -f "infra/k8s/service.yaml"
             
-            kubectl rollout status deployment "boring-stallman-a853a87033-depl" -n $NAMESPACE
+      #       kubectl rollout status deployment "boring-stallman-a853a87033-depl" -n $NAMESPACE
 
