@@ -46,14 +46,25 @@ jobs:
         command: |
           kubectl get ns $NAMESPACE || kubectl create ns $NAMESPACE
           
-          # 1. Clean the manifest specifically for GKE (Remove EKS Node Affinity)
-          # This deletes everything from 'tolerations:' to the end of the file
+          # FIX: Re-sync the AWS ECR Secret every time to ensure the token is fresh
+          kubectl create secret docker-registry aws-ecr-creds \
+            --docker-server=${{ steps.login-ecr.outputs.registry }} \
+            --docker-username=AWS \
+            --docker-password=$(aws ecr get-login-password --region ${{ env.AWS_REGION }}) \
+            --namespace $NAMESPACE --dry-run=client -o yaml | kubectl apply -f -
+
+          # Inject Token and Strip EKS-specific lines
           awk -v token="${BST_TOKEN}" '{gsub(/PLACEHOLDER_BST_TOKEN_REPLACE_AT_RUNTIME/, token)}1' "infra/k8s/deployment.yaml" | sed '/tolerations:/,$d' > /tmp/gke_deployment.yaml
           
-          # 2. Apply
+          # Apply
           kubectl apply -n $NAMESPACE -f /tmp/gke_deployment.yaml
           kubectl apply -n $NAMESPACE -f "infra/k8s/service.yaml"
           
-          kubectl rollout status deployment "boring-stallman-a853a87033-depl" -n $NAMESPACE
-        endpoint: https://api-release.beemerbenzbentley.site/sigma/api/v1/logs/github
-        token: ${{ secrets.BACKSTRACT_AUTH_TOKEN }}
+          # DEBUG: If it takes more than 30s, print the pod error
+          echo "Waiting for rollout... If stuck, checking pod events:"
+          sleep 20
+          kubectl get pods -n $NAMESPACE
+          kubectl describe pods -l app=boring-stallman-a853a87033 -n $NAMESPACE
+          
+          # Final Status Check
+          kubectl rollout status deployment "boring-stallman-a853a87033-depl" -n $NAMESPACE --timeout=120s
