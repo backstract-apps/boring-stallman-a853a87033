@@ -1,0 +1,59 @@
+name: CD - Deploy to GCP GKE
+
+on:
+  push:
+    branches: [ master ]
+  workflow_dispatch: # Allows you to run it manually for testing
+
+jobs:
+  deploy-gke:
+    runs-on: ubuntu-latest # You can use standard runners or your prod-eks-runners
+    permissions:
+      id-token: write
+      contents: read
+
+    env:
+      # Copy your GCP-specific envs here
+      GCP_PROJECT_ID: platform-test-487912
+      GKE_CLUSTER: lcnc-cluster-delhi
+      GKE_REGION: asia-south2
+      NAMESPACE: apps-release
+      # Use the same image EKS uses to avoid rebuilding
+      IMAGE_TAG: 216084506783.dkr.ecr.ap-south-1.amazonaws.com/backstract_apps:boring-stallman-a853a87033
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Authenticate to Google Cloud
+      uses: google-github-actions/auth@v2
+      with:
+        workload_identity_provider: "projects/208126041268/locations/global/workloadIdentityPools/github-actions-pool/providers/github-provider"
+        service_account: "github-deployer@platform-test-487912.iam.gserviceaccount.com"
+
+    - name: Get GKE Credentials
+      uses: google-github-actions/get-gke-credentials@v2
+      with:
+        cluster_name: ${{ env.GKE_CLUSTER }}
+        location: ${{ env.GKE_REGION }}
+
+    - name: Deploy to GKE
+      uses: ./.github/actions/log-streamer
+      env:
+        BST_TOKEN: ${{ secrets.BACKSTRACT_AUTH_TOKEN }}
+      with:
+        step_name: "GKE Deployment"
+        command: |
+          kubectl get ns $NAMESPACE || kubectl create ns $NAMESPACE
+          
+          # 1. Clean the manifest specifically for GKE (Remove EKS Node Affinity)
+          # This deletes everything from 'tolerations:' to the end of the file
+          awk -v token="${BST_TOKEN}" '{gsub(/PLACEHOLDER_BST_TOKEN_REPLACE_AT_RUNTIME/, token)}1' "infra/k8s/deployment.yaml" | sed '/tolerations:/,$d' > /tmp/gke_deployment.yaml
+          
+          # 2. Apply
+          kubectl apply -n $NAMESPACE -f /tmp/gke_deployment.yaml
+          kubectl apply -n $NAMESPACE -f "infra/k8s/service.yaml"
+          
+          kubectl rollout status deployment "boring-stallman-a853a87033-depl" -n $NAMESPACE
+        endpoint: https://api-release.beemerbenzbentley.site/sigma/api/v1/logs/github
+        token: ${{ secrets.BACKSTRACT_AUTH_TOKEN }}
