@@ -84,6 +84,7 @@ jobs:
           kubectl apply -n $NAMESPACE -f infra/k8s/alloy-configmap.yaml
           kubectl apply -n $NAMESPACE -f infra/k8s/env-configmap.yaml
           kubectl apply -n $NAMESPACE -f infra/k8s/http-route.yaml
+          kubectl apply -n $NAMESPACE -f infra/k8s/health-check.yaml
 
           # 6. Apply App Manifests
           kubectl apply -n $NAMESPACE -f /tmp/gke_deployment.yaml
