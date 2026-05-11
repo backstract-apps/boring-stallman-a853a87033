@@ -108,16 +108,3 @@ spec:
             memory: "384Mi"
             cpu: "300m"
       # --- EKS ONLY BLOCK: Pipeline must strip this for GKE ---
-      tolerations:
-        - key: "workload"
-          operator: "Equal"
-          value: "user"
-          effect: "NoSchedule"
-      affinity:
-        nodeAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-            nodeSelectorTerms:
-              - matchExpressions:
-                  - key: nodepool
-                    operator: In
-                    values: ["spot-users"]
