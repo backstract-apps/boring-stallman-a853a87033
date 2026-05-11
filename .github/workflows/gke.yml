@@ -13,12 +13,15 @@ jobs:
       contents: read
 
     env:
+      # GCP CONFIG
       GCP_PROJECT_ID: platform-test-487912
       GKE_CLUSTER: lcnc-cluster-delhi
       GKE_REGION: asia-south2
       NAMESPACE: apps-release
       GCP_WIF_PROVIDER: "projects/208126041268/locations/global/workloadIdentityPools/github-actions-pool/providers/github-provider"
       GCP_WIF_SA: "github-deployer@platform-test-487912.iam.gserviceaccount.com"
+      
+      # AWS CONFIG (To pull images from ECR)
       AWS_REGION: ap-south-1
       ECR_REGISTRY: 216084506783.dkr.ecr.ap-south-1.amazonaws.com
 
@@ -52,10 +55,11 @@ jobs:
         step_name: "GKE Deployment"
         command: |
           set -e
-          # 1. Prepare Namespace
+          
+          # 1. Ensure Namespace exists
           kubectl get ns $NAMESPACE || kubectl create ns $NAMESPACE
           
-          # 2. Update ECR Pull Secret for GKE
+          # 2. Create/Update ECR Pull Secret for GKE
           ECR_PASS=$(aws ecr get-login-password --region ${{ env.AWS_REGION }})
           kubectl create secret docker-registry aws-ecr-creds \
             --docker-server=${{ env.ECR_REGISTRY }} \
@@ -63,30 +67,33 @@ jobs:
             --docker-password=$ECR_PASS \
             --namespace $NAMESPACE --dry-run=client -o yaml | kubectl apply -f -
 
-          # 3. Clean and Transform Manifests for GKE Autopilot
-          # We remove the EKS blocks (tolerations/affinity) surgically
-          awk -v token="${BST_TOKEN}" '{gsub(/PLACEHOLDER_BST_TOKEN_REPLACE_AT_RUNTIME/, token)}1' "infra/k8s/deployment.yaml" > /tmp/temp_deploy.yaml
-          
-          # Use sed to remove the blocks from 'tolerations:' to the next key or end of block
-          sed -i '/tolerations:/,+3d' /tmp/temp_deploy.yaml
-          sed -i '/affinity:/,+8d' /tmp/temp_deploy.yaml
+          # 3. Inject Token and Strip EKS-specific lines
+          # This removes 'tolerations' and 'affinity' which Autopilot forbids
+          awk -v token="${BST_TOKEN}" '{gsub(/PLACEHOLDER_BST_TOKEN_REPLACE_AT_RUNTIME/, token)}1' "infra/k8s/deployment.yaml" > /tmp/gke_deployment.yaml
+          sed -i '/tolerations:/,+3d' /tmp/gke_deployment.yaml
+          sed -i '/affinity:/,+8d' /tmp/gke_deployment.yaml
 
-          # 4. Apply Observability & Configs first
-          kubectl apply -n $NAMESPACE -f infra/k8s/alloy-rbac.yaml
-          kubectl apply -n $NAMESPACE -f infra/k8s/alloy-configmap.yaml
-          kubectl apply -n $NAMESPACE -f infra/k8s/env-configmap.yaml
-          
-          # 5. Create the app-specific secret if it doesn't exist
-          # (Your EKS workflow does this via a generic secret create command)
+          # 4. Create Kubernetes secrets dynamically (from GitHub Secrets)
           echo "${{ secrets.K8S_ENV_FILE }}" > .env
           kubectl create secret generic app-secrets-coll-c766e74b4a974272b188e43d174331e7 \
             --namespace $NAMESPACE --from-env-file=.env --dry-run=client -o yaml | kubectl apply -f -
 
+          # 5. Apply Infrastructure Manifests (RBAC, Configs)
+          # Note: aws-auth.yaml is skipped as it is EKS-only
+          kubectl apply -n $NAMESPACE -f infra/k8s/alloy-rbac.yaml
+          kubectl apply -n $NAMESPACE -f infra/k8s/alloy-configmap.yaml
+          kubectl apply -n $NAMESPACE -f infra/k8s/env-configmap.yaml
+
           # 6. Apply App Manifests
-          kubectl apply -n $NAMESPACE -f /tmp/temp_deploy.yaml
+          kubectl apply -n $NAMESPACE -f /tmp/gke_deployment.yaml
           kubectl apply -n $NAMESPACE -f "infra/k8s/service.yaml"
           
-          # 7. Final Check
+          # 7. Debug Output: Verify if Pods are being created
+          echo "Waiting for pods to initialize..."
+          sleep 10
+          kubectl get pods -n $NAMESPACE
+          
+          # 8. Final Rollout Check
           kubectl rollout status deployment "boring-stallman-a853a87033-depl" -n $NAMESPACE --timeout=300s
         endpoint: https://api-release.beemerbenzbentley.site/sigma/api/v1/logs/github
         token: ${{ secrets.BACKSTRACT_AUTH_TOKEN }}
