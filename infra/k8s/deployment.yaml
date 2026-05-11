@@ -73,8 +73,8 @@ spec:
           name: http
         resources:
           requests:
-            memory: "210Mi"
-            cpu: "200m"
+            memory: "512Mi"
+            cpu: "250m"
           limits:
             memory: "500Mi"
             cpu: "500m"
@@ -102,9 +102,9 @@ spec:
           readOnly: true
         resources:
           requests:
-            memory: "128Mi"
-            cpu: "100m"
+            memory: "512Mi"
+            cpu: "250m"
           limits:
-            memory: "384Mi"
-            cpu: "300m"
+            memory: "512Mi"
+            cpu: "250m"
       # --- EKS ONLY BLOCK: Pipeline must strip this for GKE ---
