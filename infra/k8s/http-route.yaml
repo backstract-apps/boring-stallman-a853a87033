@@ -11,7 +11,7 @@ spec:
   - matches:
     - path:
         type: PathPrefix
-        value: /
+        value: /us-east-2-backstractelb-621aff-coll-c766e74b4a974272b188e43d174331e7
     backendRefs:
     - name: boring-stallman-a853a87033-srv
       port: 80
