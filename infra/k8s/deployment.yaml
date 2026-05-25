@@ -32,6 +32,7 @@ spec:
         app: boring-stallman-a853a87033
         release: prometheus
     spec:
+      runtimeClassName: gvisor
       imagePullSecrets:
         - name: aws-ecr-creds
       serviceAccountName: alloy-service-account
@@ -76,8 +77,8 @@ spec:
             memory: "512Mi"
             cpu: "250m"
           limits:
-            memory: "500Mi"
-            cpu: "500m"
+            memory: "512Mi"
+            cpu: "250m"
       - name: alloy-sidecar
         image: grafana/alloy:latest
         args:
