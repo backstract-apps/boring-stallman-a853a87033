@@ -32,7 +32,7 @@ spec:
         app: boring-stallman-a853a87033
         release: prometheus
     spec:
-      runtimeClassName: gvisor
+      #runtimeClassName: gvisor
       imagePullSecrets:
         - name: aws-ecr-creds
       serviceAccountName: alloy-service-account
