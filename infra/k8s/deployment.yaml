@@ -21,7 +21,7 @@ metadata:
     app: boring-stallman-a853a87033
     release: prometheus
 spec:
-  replicas: 3
+  replicas: 1
   selector:
     matchLabels:
       app: boring-stallman-a853a87033
