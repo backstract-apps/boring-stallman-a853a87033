@@ -1,0 +1,17 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: boring-stallman-route
+  namespace: apps-release
+spec:
+  parentRefs:
+  - name: lcnc-gateway
+    namespace: default    # Crucial: Points to the Gateway in 'default'
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /us-east-2-backstractelb-621aff-coll-c766e74b4a974272b188e43d174331e7
+    backendRefs:
+    - name: boring-stallman-a853a87033-srv
+      port: 80
