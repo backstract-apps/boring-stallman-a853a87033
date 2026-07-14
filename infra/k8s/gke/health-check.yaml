@@ -1,0 +1,16 @@
+apiVersion: networking.gke.io/v1
+kind: HealthCheckPolicy
+metadata:
+  name: boring-stallman-hc
+  namespace: apps-release
+spec:
+  default:
+    config:
+      type: HTTP
+      httpHealthCheck:
+        port: 7070
+        requestPath: /docs  # Change this to a path that returns 200 OK
+  targetRef:
+    group: ""
+    kind: Service
+    name: boring-stallman-a853a87033-srv
