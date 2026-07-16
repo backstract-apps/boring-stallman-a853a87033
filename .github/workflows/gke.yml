@@ -108,7 +108,14 @@ jobs:
     # 4. Notify Argo CD to sync immediately
     - name: Trigger Argo CD Webhook Sync
       run: |
+        # 1. Force ApplicationSet to discover this new repository instantly
+        curl -X POST -k https://argocd.backstract.io/api/webhook \
+          -H "Content-Type: application/json" \
+          -H "X-GitHub-Event: repository" \
+          -d '{"action": "created", "repository": {"html_url": "'"${{ github.server_url }}/${{ github.repository }}"'"}}'
+
+        # 2. Tell Argo CD to pull manifests and deploy immediately
         curl -X POST -k https://argocd.backstract.io/api/webhook \
           -H "Content-Type: application/json" \
           -H "X-GitHub-Event: push" \
-          -d '{"ref": "refs/heads/master"}'
+          -d '{"ref": "refs/heads/master", "repository": {"html_url": "'"${{ github.server_url }}/${{ github.repository }}"'"}}'
