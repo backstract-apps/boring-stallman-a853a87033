@@ -21,10 +21,11 @@ jobs:
       NAMESPACE: apps-release
       GCP_WIF_PROVIDER: "projects/208126041268/locations/global/workloadIdentityPools/github-actions-pool/providers/github-provider"
       GCP_WIF_SA: "github-deployer@platform-test-487912.iam.gserviceaccount.com"
+      GAR_REGISTRY: "asia-south2-docker.pkg.dev/platform-test-487912/backstract-apps"
 
       # AWS CONFIG (To pull images from ECR)
-      AWS_REGION: ap-south-1
-      ECR_REGISTRY: 216084506783.dkr.ecr.ap-south-1.amazonaws.com
+      #AWS_REGION: ap-south-1
+      #ECR_REGISTRY: 216084506783.dkr.ecr.ap-south-1.amazonaws.com
 
     steps:
     - name: Checkout code
@@ -32,11 +33,11 @@ jobs:
       with:
         fetch-depth: 0
 
-    - name: Configure AWS credentials
-      uses: aws-actions/configure-aws-credentials@v4
-      with:
-        role-to-assume: arn:aws:iam::216084506783:role/GitHubActionsDeployRole
-        aws-region: ${{ env.AWS_REGION }}
+    # - name: Configure AWS credentials
+    #   uses: aws-actions/configure-aws-credentials@v4
+    #   with:
+    #     role-to-assume: arn:aws:iam::216084506783:role/GitHubActionsDeployRole
+    #     aws-region: ${{ env.AWS_REGION }}
 
     - name: Authenticate to Google Cloud
       uses: google-github-actions/auth@v2
@@ -51,16 +52,17 @@ jobs:
         location: ${{ env.GKE_REGION }}
 
     # 1. Provision Runtime Secrets & ECR Credentials into GKE
-    - name: Provision Secrets & ECR Credentials in GKE
+    #- name: Provision Secrets & ECR Credentials in GKE
+    - name: Provision Secrets in GKE
       run: |
         kubectl get ns ${{ env.NAMESPACE }} || kubectl create ns ${{ env.NAMESPACE }}
 
-        ECR_PASS=$(aws ecr get-login-password --region ${{ env.AWS_REGION }})
-        kubectl create secret docker-registry aws-ecr-creds \
-          --docker-server=${{ env.ECR_REGISTRY }} \
-          --docker-username=AWS \
-          --docker-password=$ECR_PASS \
-          --namespace ${{ env.NAMESPACE }} --dry-run=client -o yaml | kubectl apply -f -
+        # ECR_PASS=$(aws ecr get-login-password --region ${{ env.AWS_REGION }})
+        # kubectl create secret docker-registry aws-ecr-creds \
+        #   --docker-server=${{ env.ECR_REGISTRY }} \
+        #   --docker-username=AWS \
+        #   --docker-password=$ECR_PASS \
+        #   --namespace ${{ env.NAMESPACE }} --dry-run=client -o yaml | kubectl apply -f -
 
         echo "${{ secrets.K8S_ENV_FILE }}" > .env
         kubectl create secret generic app-secrets-coll-c766e74b4a974272b188e43d174331e7 \
@@ -86,6 +88,12 @@ jobs:
           # Clean up invalid tolerations/affinity blocks cleanly
           sed -i '/tolerations:/,+3d' /tmp/clean_deployment.yaml
           sed -i '/affinity:/,+8d' /tmp/clean_deployment.yaml
+
+          # Remove legacy aws-ecr-creds imagePullSecrets
+          sed -i '/imagePullSecrets:/,+2d' /tmp/clean_deployment.yaml
+
+          # Update image path to Google Artifact Registry if still pointing to AWS ECR
+          sed -i 's|216084506783.dkr.ecr.ap-south-1.amazonaws.com/backstract_apps|${{ env.GAR_REGISTRY }}|g' /tmp/clean_deployment.yaml
           
           mv /tmp/clean_deployment.yaml "$TARGET_FILE"
         fi
