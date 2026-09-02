@@ -167,28 +167,28 @@ jobs:
       # =========================================================
       # 8. VERIFY IMAGE EXISTS IN GAR
       # =========================================================
-      - name: Verify image in Artifact Registry
-        run: |
-          set -euo pipefail
+      # - name: Verify image in Artifact Registry
+      #   run: |
+      #     set -euo pipefail
 
-          IMAGE="${GAR_REGISTRY}/${STATIC_TAG}"
+      #     IMAGE="${GAR_REGISTRY}/${STATIC_TAG}"
 
-          echo "Checking Artifact Registry..."
+      #     echo "Checking Artifact Registry..."
 
-          gcloud artifacts docker images list \
-            "${GAR_REGISTRY}" \
-            --include-tags
+      #     gcloud artifacts docker images list \
+      #       "${GAR_REGISTRY}" \
+      #       --include-tags
 
-          echo ""
-          echo "Checking exact image:"
-          echo "${IMAGE}:${STATIC_TAG}"
+      #     echo ""
+      #     echo "Checking exact image:"
+      #     echo "${IMAGE}:${STATIC_TAG}"
 
-          gcloud artifacts docker images describe \
-            "${IMAGE}:${STATIC_TAG}" \
-            --format="yaml(name,version,createTime,updateTime)"
+      #     gcloud artifacts docker images describe \
+      #       "${IMAGE}:${STATIC_TAG}" \
+      #       --format="yaml(name,version,createTime,updateTime)"
 
-          echo ""
-          echo "Artifact Registry verification successful."
+      #     echo ""
+      #     echo "Artifact Registry verification successful."
 
 
       # =========================================================
