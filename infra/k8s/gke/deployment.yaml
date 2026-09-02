@@ -1,3 +1,4 @@
+---
 apiVersion: v1
 kind: Secret
 metadata:
@@ -32,9 +33,9 @@ spec:
         app: boring-stallman-a853a87033
         release: prometheus
     spec:
-      #runtimeClassName: gvisor
-      imagePullSecrets:
-        - name: aws-ecr-creds
+      runtimeClassName: gvisor
+      #imagePullSecrets:
+        #- name: aws-ecr-creds
       serviceAccountName: alloy-service-account
       volumes:
       - name: alloy-config
@@ -43,6 +44,7 @@ spec:
           items:
           - key: alloy.river
             path: config.alloy
+            
       - name: podinfo
         downwardAPI:
           items:
@@ -54,7 +56,8 @@ spec:
               fieldPath: metadata.annotations
       containers:
       - name: boring-stallman-a853a87033
-        image: 216084506783.dkr.ecr.ap-south-1.amazonaws.com/backstract_apps:boring-stallman-a853a87033
+        #image: 216084506783.dkr.ecr.ap-south-1.amazonaws.com/backstract_apps:boring-stallman-a853a87033
+        image: asia-south2-docker.pkg.dev/platform-test-487912/backstract-apps/boring-stallman-a853a87033:latest
         imagePullPolicy: Always
         env:
         - name: BACKSTRACT_AUTH_TOKEN
