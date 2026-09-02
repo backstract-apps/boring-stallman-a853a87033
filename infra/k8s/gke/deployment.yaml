@@ -54,7 +54,7 @@ spec:
       containers:
       - name: boring-stallman-a853a87033
         #image: asia-south2-docker.pkg.dev/platform-test-487912/backstract-apps:boring-stallman-a853a87033
-        image: asia-south2-docker.pkg.dev/platform-test-487912/backstract-apps/boring-stallman-a853a87033:latest
+        image: asia-south2-docker.pkg.dev/platform-test-487912/backstract-apps/boring-stallman-a853a87033
         imagePullPolicy: Always
         env:
         - name: BACKSTRACT_AUTH_TOKEN
