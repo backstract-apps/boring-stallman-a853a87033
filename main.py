@@ -214,8 +214,8 @@ async def prometheus_middleware(request: Request, call_next):
 prometheus_app = make_asgi_app()
 app.mount('/metrics', prometheus_app)
 
-mcp = FastApiMCP(app, name='Mayson Generated APIs - boring-stallman-a853a87033', description='Mayson Generated APIs - boring-stallman-a853a87033')
-mcp.mount()
+#mcp = FastApiMCP(app, name='Mayson Generated APIs - boring-stallman-a853a87033', description='Mayson Generated APIs - boring-stallman-a853a87033')
+#mcp.mount()
 
 
 def main():
